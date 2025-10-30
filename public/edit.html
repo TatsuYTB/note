@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Online Textpad — Edit</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.7/codemirror.min.css" />
+  <style>
+    .vscode-bg { background: #1e1e1e; color: #d4d4d4; }
+    .topbar { height:56px; display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid #2a2a2a; }
+    .links a { color:#9ad1ff; text-decoration:underline; }
+    .CodeMirror { height:100% !important; background:#1e1e1e; color:#d4d4d4; }
+    .cm-s-default .cm-keyword { color:#c586c0; }
+    .cm-s-default .cm-string { color:#ce9178; }
+    .cm-s-default .cm-number { color:#b5cea8; }
+    .cm-s-default .cm-comment { color:#6a9955; font-style: italic; }
+  </style>
+</head>
+<body class="vscode-bg h-screen">
+  <div class="topbar vscode-bg">
+    <button id="btnSave" class="btn-save bg-[#0E639C] text-white px-3 py-1 rounded">Save</button>
+    <button id="btnNew" class="btn-new bg-gray-700 text-white px-3 py-1 rounded">New</button>
+
+    <input id="idInput" class="ml-2 px-2 py-1 rounded bg-[#252526] text-gray-200 border border-[#3c3c3c]" placeholder="Custom id (optional, a-z0-9_-)" />
+
+    <div id="links" class="links ml-auto text-sm text-gray-300"></div>
+    <div id="status" class="ml-4 text-sm text-gray-400"></div>
+  </div>
+
+  <div id="container" class="flex h-[calc(100%-56px)]">
+    <div id="editorPane" class="w-full p-3">
+      <div class="h-full border border-[#2a2a2a] rounded-lg overflow-hidden">
+        <textarea id="code"></textarea>
+      </div>
+    </div>
+    </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.7/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.7/mode/javascript/javascript.min.js"></script>
+  <script>
+    const baseUrl = window.location.origin;
+
+    function currentId() {
+      const parts = location.pathname.split("/").filter(Boolean);
+      return parts[1] || null;
+    }
+
+    const statusEl = document.getElementById("status");
+    const linksEl = document.getElementById("links");
+    const idInput = document.getElementById("idInput");
+    
+    function setStatus(t) { statusEl.textContent = t; }
+
+    const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+      lineNumbers: true,
+      mode: "javascript",
+      tabSize: 2,
+      theme: "default",
+    });
+
+    async function loadContent() {
+      const id = currentId();
+      if (!id) { setStatus("New document"); return; }
+      setStatus("Loading...");
+      try {
+        const res = await fetch(`/api/content/${id}`);
+        if (!res.ok) { setStatus("Not found"); return; }
+        const j = await res.json();
+        editor.setValue(j.content || "");
+        setStatus("Loaded");
+        linksEl.innerHTML = `Edit: <a target="_blank" href="${baseUrl}/edit/${id}">${baseUrl}/edit/${id}</a> — Raw: <a target="_blank" href="${baseUrl}/raw/${id}">${baseUrl}/raw/${id}</a>`;
+      } catch (e) { setStatus("Error loading"); console.error(e); }
+    }
+
+    async function save(customId) {
+      setStatus("Saving...");
+      const content = editor.getValue();
+      const payload = { id: customId || currentId() || undefined, content };
+      try {
+        const res = await fetch("/api/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const j = await res.json();
+        if (j.error) { setStatus("Error: " + j.error); return; }
+        history.replaceState({}, "", "/edit/" + j.id);
+        idInput.value = j.id;
+        linksEl.innerHTML = `Edit: <a target="_blank" href="${j.editUrl}">${j.editUrl}</a> — Raw: <a target="_blank" href="${j.rawUrl}">${j.rawUrl}</a>`;
+        setStatus("Saved ("+j.id+")");
+        return j.id;
+      } catch (err) { setStatus("Save failed"); console.error(err); }
+    }
+
+    document.getElementById("btnSave").addEventListener("click", () => save(idInput.value.trim() || undefined));
+    document.getElementById("btnNew").addEventListener("click", () => {
+      editor.setValue("");
+      idInput.value = "";
+      linksEl.innerHTML = "";
+      setStatus("New document");
+      history.replaceState({}, "", "/edit");
+    });
+
+    let changed = false;
+    let autosaveTimer = null;
+    editor.on("change", () => {
+      changed = true;
+      if (autosaveTimer) clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(async () => {
+        if (changed) {
+          await save(idInput.value.trim() || undefined);
+          changed = false;
+        }
+      }, 1000);
+    });
+    loadContent();
+  </script>
+</body>
+</html>

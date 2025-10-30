@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Online Textpad — Raw viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" />
+  <style>
+    html,body{height:100%;margin:0;font-family:monospace;background:#0b0b0b;color:#ddd}
+    .wrap{padding:12px;}
+    pre{white-space:pre-wrap;padding:12px;border-radius:6px;background:#111;overflow:auto;}
+    .meta{color:#9aa;font-size:13px;margin-bottom:8px;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="meta" id="meta">Loading...</div>
+    <pre id="out" class="language-javascript"><code id="code">Loading...</code></pre>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script>
+    const path = location.pathname.split("/").filter(Boolean);
+    const id = path[1] || location.search.split("id=")[1] || null;
+    const out = document.getElementById("code");
+    const meta = document.getElementById("meta");
+    async function fetchContent(){
+      if(!id){ out.textContent = "Missing id"; meta.textContent = ""; Prism.highlightElement(out); return; }
+      try{
+        const res = await fetch('/api/content/'+id);
+        if(!res.ok){ out.textContent = "Not found"; meta.textContent = ""; Prism.highlightElement(out); return; }
+        const j = await res.json();
+        out.textContent = j.content || "";
+        meta.textContent = "id: " + j.id + " — updated: " + (new Date().toLocaleString());
+        Prism.highlightElement(out);
+      }catch(e){ out.textContent = "Error"; meta.textContent = ""; Prism.highlightElement(out); }
+    }
+    fetchContent();
+    setInterval(fetchContent, 1000);
+  </script>
+</body>
+</html>
