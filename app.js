@@ -7,7 +7,8 @@ const bodyParser = require("body-parser");
 const DATA_DIR = path.join(__dirname, "data");
 const MANIFEST = path.join(DATA_DIR, "manifest.json");
 const PORT = process.env.PORT || 3000;
-const BASE_URL = process.env.BASE_URL || `http://note-sq0p.onrender.com:${PORT}`;
+const BASE_URL = process.env.BASE_URL || `http://note-sq0p.onrender.com`;
+//const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(MANIFEST)) fs.writeFileSync(MANIFEST, JSON.stringify({}), "utf8");
